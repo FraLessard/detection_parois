@@ -1,0 +1,5 @@
+Marche à suivre pour lancer l'application :
+1. Télécharger R : https://cran.r-project.org/bin/windows/base/
+2. Télécharger RStudio : https://posit.co/download/rstudio-desktop/
+3. Ouvrir le fichier "detection_parois_app.R" avec le logiciel Rstudio
+4. Lire les nouvelles consignes dans le fichier "detection_parois_app.R"
