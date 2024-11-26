@@ -40,5 +40,5 @@ export.map <- function(carte_ggplot,
                      ".tiff"))
   
   # Retirer l'image temporaire sans géoréférencement
-  file.remove("./donnees_temporaires/carte_temporaire.png")
+  file.remove("./donnees_temporaires/carte_ggplot.png")
 }

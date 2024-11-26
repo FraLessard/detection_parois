@@ -367,6 +367,7 @@ server <- function(input, output, session) {
   
   # 🟣 Pour telecharger les feuillets detectes sur github (À faire lorsque «btn_lecture» va fonctionner) 🟣
   observeEvent(input$btn_telechargement, {
+    req(feuillets_detectes_github_reactive())
     if(any(feuillets_detectes_reactive() == input$feuillet_selection)){
       showNotification("Vous avez déjà les parois de ce feuillet sur votre ordinateur", type = "error", duration = 15, session = session)
     } else {
@@ -418,6 +419,8 @@ server <- function(input, output, session) {
   observeEvent(input$btn_detection, {
     if(any(feuillets_detectes_reactive() == input$feuillet_selection)){
       showNotification("Les parois ont déjà été détectées pour ce feuillet", type = "error", duration = 15, session = session)
+    #} else if(any(feuillets_detectes_github_reactive() %>% pull(feuillet) == input$feuillet_selection)){
+    #  showNotification("Les parois pour ce feuillet sont déjà disponibles sur GitHub", type = "error", duration = 15, session = session)
     } else {
       detection.parois(index = index,
                        no_feuillet = input$feuillet_selection, 
