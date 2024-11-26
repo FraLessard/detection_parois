@@ -42,6 +42,7 @@
 # install.packages("leaflet.extras")
 # install.packages("downloader")
 # install.packages("devtools")
+# install.packages("httr")
 # devtools::install_github('Chrisjb/basemapR')
 
 
@@ -61,7 +62,9 @@ library(exactextractr)
 library(leaflet)
 library(leaflet.extras)
 library(downloader)
+library(httr)
 library(basemapR)
+
 
 
 
@@ -146,10 +149,10 @@ ui <- fluidPage(
         bsCollapsePanel("Détection de nouvelles parois",
                         div(class = "sidebar-panel",
                             # Paramètres
+                            actionButton("btn_lecture", "Lire les feuillets disponibles sur GitHub"),
                             textInput("feuillet_selection", "Feuillet à traiter", "21M04NO"),
                             actionButton("btn_detection", "Détecter les parois dans le feuillet sélectionné"),
-                            actionButton("btn_lecture", "Lire les feuillets disponibles sur GitHub"),
-                            actionButton("btn_telechargement", "Récupérer les feuillets disponibles sur GitHub")))       
+                            actionButton("btn_telechargement", "Récupérer le feuillet sur GitHub")))       
       )
     ),
     
@@ -215,7 +218,8 @@ server <- function(input, output, session) {
                   color = "turquoise",
                   weight = 2,
                   fillOpacity = 0,
-                  group = "recherche")
+                  group = "recherche",
+                  options = pathOptions(interactive = FALSE))
   })
   
   # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
@@ -232,8 +236,44 @@ server <- function(input, output, session) {
                     color = "lightgreen",
                     weight = 2,
                     fillOpacity = 0,
-                    group = "feuillets_detectes")
+                    group = "feuillets_detectes",
+                    options = pathOptions(interactive = FALSE))
     }
+  })
+  
+  # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+  
+  # 🟢 Mise a jour de la carte avec les feuillets deja detectes disponibles sur github 🟢
+  observe({
+    if(is.null(feuillets_detectes_github_reactive())){
+      leafletProxy("map") %>%
+        clearGroup("feuillets_detectes_github")
+    } else {
+      # Extraction des noms de feuillets
+      feuillets_detectes_github_reactive() %>% 
+        pull(feuillet) %>% 
+        unique() -> feuillets_detectes_github
+      
+      leafletProxy("map") %>%
+        clearGroup("feuillets_detectes_github") %>% 
+        addPolygons(data = index %>% filter(feuillet %in% feuillets_detectes_github),
+                    color = "purple",
+                    weight = 4,
+                    fillOpacity = 0,
+                    group = "feuillets_detectes_github",
+                    options = pathOptions(interactive = FALSE))
+    }
+  })
+  
+  # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+  
+  # 🟢 Ajout des contrôles de couches pour assurer l'ordre d'affichage 🟢
+  observe({
+    leafletProxy("map") %>%
+      addLayersControl(overlayGroups = c("feuillets_detectes",
+                                         "feuillets_detectes_github" ),  # Liste les groupes dans l'ordre
+                       options = layersControlOptions(collapsed = FALSE)
+      )
   })
   
   # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
@@ -312,36 +352,36 @@ server <- function(input, output, session) {
   
   # 🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠
   
-  # 🟣 Pour lire les feuillets detectes sur github (MARCHE PAS) 🟣
-  observeEvent(input$btn_lecture, {
-    showNotification("Fonction non disponible pour l'instant Trou de bite", type = "error", duration = 15, session = session)
-    #   api_url <- "https://api.github.com/repos/FraLessard/parois/contents/parois"
-    #   
-    #   # Requête à l'API GitHub
-    #   response <- GET(api_url)
-    #   
-    #   # Vérification du statut
-    #   if (status_code(response) == 200) {
-    #     files <- fromJSON(content(response, as = "text"))
-    #     file_names <- files$name
-    #     
-    #     # Filtrer les fichiers .shp et nettoyer les noms
-    #     file_names %>%
-    #       grep("\\.shp$", ., value = TRUE) %>%
-    #       gsub(".shp", "", .) %>%
-    #       gsub("parois_", "", .) -> fichiers
-    #     
-    #     print(fichiers)
-    #   } else {
-    #     paste("Erreur :", status_code(response))
-    #   }
+  # 🟣 Pour lire les feuillets detectes sur github 🟣
+  feuillets_detectes_github_reactive <- eventReactive(input$btn_lecture, {
+    GET("https://api.github.com/repos/FraLessard/parois/contents/parois") %>% 
+      content() %>% 
+      map_dfr(~tibble(name = .x$name,
+                      download_url = .x$download_url)) %>% 
+      mutate(feuillet = pull(.,name) %>% gsub("\\..*$", "", .) %>% gsub("parois_", "", .)) %>% 
+      mutate(dest = paste0("./parois/", name)) -> feuillets_detectes_github
+    
+    feuillets_detectes_github
   })
   # 🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
   
   # 🟣 Pour telecharger les feuillets detectes sur github (À faire lorsque «btn_lecture» va fonctionner) 🟣
   observeEvent(input$btn_telechargement, {
-    showNotification("Fonction non disponible pour l'instant Trou de bite", type = "error", duration = 15, session = session)
+    if(any(feuillets_detectes_reactive() == input$feuillet_selection)){
+      showNotification("Vous avez déjà les parois de ce feuillet sur votre ordinateur", type = "error", duration = 15, session = session)
+    } else {
+    feuillets_detectes_github_reactive() %>% 
+      filter(feuillet == input$feuillet_selection) -> feuillets_detectes_github_a_telecharger
     
+    map2(feuillets_detectes_github_a_telecharger$download_url,
+         feuillets_detectes_github_a_telecharger$dest,
+         ~ download.file(url = .x,
+                         destfile = .y,
+                         mode = "wb",
+                         method = "curl"))
+    
+    showNotification("Feuillet téléchargé depuis github", type = "message", duration = 15, session = session)
+    }
   })
   # 🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
   
@@ -366,7 +406,7 @@ server <- function(input, output, session) {
       # Pour retourner les parois
       parois
     } else {
-      showNotification("Il n'y a aucune paroi de detectee pour l'instant", type = "message", duration = 15, session = session)
+      showNotification("Il n'y a aucune paroi de detectée pour l'instant", type = "message", duration = 15, session = session)
       # Pour retourner une valeur nulle
       NULL
     }
