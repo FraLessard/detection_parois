@@ -7,11 +7,24 @@ lecture.parois <- function(variable_symbologie,
                            s10m_seuil,
                            s20m_seuil,
                            s30m_seuil,
+                           index,
                            cercle_filtre){
   
   variable_symbologie <- sym(variable_symbologie) # Pour mettre la variable de la symbologie en symbole R
 
+  # Lecture des no de feuillet se trouvant dans le cercle de lecture
+  index %>% 
+    st_filter(cercle_filtre) %>% 
+    pull(feuillet) -> feuillets_filtre
+  
   list.files("./parois", pattern = "\\.shp$", full.names = TRUE) %>% # Lectures des parois detectees
+    tibble(fichier_complet = .) %>% # On fait un tibble pour extraire le no de feuillet
+    mutate(feuillet = fichier_complet %>%
+             basename() %>%
+             gsub(".shp", "", .) %>% 
+             gsub("parois_", "", .)) %>% # Extraction du no de feuillet
+    filter(feuillet %in% feuillets_filtre) %>% # On conserve seulement les no de feuillet se trouvant dans le cercle de lecture
+    pull(fichier_complet) %>% # On extrait seulement le nom du fichier
     map(st_read, quiet = TRUE) %>% # Lecture des shapefiles
     map(st_transform, 4326) %>% # Changement du systeme de coordonnes pour le lire dans leaflet
     bind_rows() %>% # Combinaison des fichiers dans un objet

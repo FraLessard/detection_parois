@@ -63,8 +63,6 @@ detection.parois <- function(index,
   parois %>% 
     st_write(paste0("./parois/parois_", index_select$feuillet, ".shp"))
   
-  showNotification(paste0("Détection des parois terminé pour le feuillet ", index_select$feuillet), type = "message", duration = NULL, session = session)
-  
   # Supression des rasters temporaires
   list.files("./donnees_temporaires" , full.names = T) %>% 
     file.remove()

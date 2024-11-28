@@ -149,10 +149,8 @@ ui <- fluidPage(
         bsCollapsePanel("Détection de nouvelles parois",
                         div(class = "sidebar-panel",
                             # Paramètres
-                            actionButton("btn_lecture", "Lire les feuillets disponibles sur GitHub"),
                             textInput("feuillet_selection", "Feuillet à traiter", "21M04NO"),
-                            actionButton("btn_detection", "Détecter les parois dans le feuillet sélectionné"),
-                            actionButton("btn_telechargement", "Récupérer le feuillet sur GitHub")))       
+                            actionButton("btn_detection", "Détecter/télécharger les parois dans le feuillet")))       
       )
     ),
     
@@ -197,7 +195,13 @@ server <- function(input, output, session) {
                   weight = 2,
                   fillOpacity = 0,
                   layerId = ~feuillet,
-                  popup = ~as.character(feuillet))
+                  popup = ~as.character(feuillet)) %>%
+      addPolygons(data = index %>% filter(feuillet %in% c(feuillets_detectes_github %>% pull(feuillet) %>% unique())),
+                  color = "purple",
+                  weight = 4,
+                  fillOpacity = 0,
+                  group = "feuillets_detectes_github",
+                  options = pathOptions(interactive = FALSE))
   })
   
   # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
@@ -243,31 +247,7 @@ server <- function(input, output, session) {
   
   # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
   
-  # 🟢 Mise a jour de la carte avec les feuillets deja detectes disponibles sur github 🟢
-  observe({
-    if(is.null(feuillets_detectes_github_reactive())){
-      leafletProxy("map") %>%
-        clearGroup("feuillets_detectes_github")
-    } else {
-      # Extraction des noms de feuillets
-      feuillets_detectes_github_reactive() %>% 
-        pull(feuillet) %>% 
-        unique() -> feuillets_detectes_github
-      
-      leafletProxy("map") %>%
-        clearGroup("feuillets_detectes_github") %>% 
-        addPolygons(data = index %>% filter(feuillet %in% feuillets_detectes_github),
-                    color = "purple",
-                    weight = 4,
-                    fillOpacity = 0,
-                    group = "feuillets_detectes_github",
-                    options = pathOptions(interactive = FALSE))
-    }
-  })
-  
-  # 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
-  
-  # 🟢 Ajout des contrôles de couches pour assurer l'ordre d'affichage 🟢
+  # 🟢 Ajout des contrôles des feuillets pour assurer l'ordre d'affichage 🟢
   observe({
     leafletProxy("map") %>%
       addLayersControl(overlayGroups = c("feuillets_detectes",
@@ -304,7 +284,7 @@ server <- function(input, output, session) {
       addLegend("bottomright",
         colors = parois_reactive() %>% arrange(ordre) %>% pull(couleur) %>% unique,  # Utilise directement les codes de couleur
         labels = parois_reactive() %>% arrange(ordre) %>% pull(label) %>% unique,  # Affiche les codes de couleur comme labels
-        title = "Valeurs",
+        title = "Légende",
         opacity = 1)
   })
   
@@ -352,40 +332,6 @@ server <- function(input, output, session) {
   
   # 🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠🟠
   
-  # 🟣 Pour lire les feuillets detectes sur github 🟣
-  feuillets_detectes_github_reactive <- eventReactive(input$btn_lecture, {
-    GET("https://api.github.com/repos/FraLessard/parois/contents/parois") %>% 
-      content() %>% 
-      map_dfr(~tibble(name = .x$name,
-                      download_url = .x$download_url)) %>% 
-      mutate(feuillet = pull(.,name) %>% gsub("\\..*$", "", .) %>% gsub("parois_", "", .)) %>% 
-      mutate(dest = paste0("./parois/", name)) -> feuillets_detectes_github
-    
-    feuillets_detectes_github
-  })
-  # 🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
-  
-  # 🟣 Pour telecharger les feuillets detectes sur github (À faire lorsque «btn_lecture» va fonctionner) 🟣
-  observeEvent(input$btn_telechargement, {
-    req(feuillets_detectes_github_reactive())
-    if(any(feuillets_detectes_reactive() == input$feuillet_selection)){
-      showNotification("Vous avez déjà les parois de ce feuillet sur votre ordinateur", type = "error", duration = 15, session = session)
-    } else {
-    feuillets_detectes_github_reactive() %>% 
-      filter(feuillet == input$feuillet_selection) -> feuillets_detectes_github_a_telecharger
-    
-    map2(feuillets_detectes_github_a_telecharger$download_url,
-         feuillets_detectes_github_a_telecharger$dest,
-         ~ download.file(url = .x,
-                         destfile = .y,
-                         mode = "wb",
-                         method = "curl"))
-    
-    showNotification("Feuillet téléchargé depuis github", type = "message", duration = 15, session = session)
-    }
-  })
-  # 🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
-  
   # 🟣 Lire les parois avec en fonction des paramètres de l'utilisateur 🟣
   # PROB, SI ON LIT A UN ENDROIT OÙ IL N'Y A PAS DE PAROIS DETECTÉES, ÇA BUG
   parois_reactive <- eventReactive(input$btn_affichage, {
@@ -401,6 +347,7 @@ server <- function(input, output, session) {
                      s10m_seuil = input$s10m_seuil,
                      s20m_seuil = input$s20m_seuil,
                      s30m_seuil = input$s30m_seuil,
+                     index = index,
                      cercle_filtre = cercle_reactive()) %>% 
         tri.anthropique(polygones_anthropiques = polygones_anthropiques, 
                         liste_tri = input$anthropique) -> parois # Pour trier les affectation anthropiques
@@ -419,12 +366,24 @@ server <- function(input, output, session) {
   observeEvent(input$btn_detection, {
     if(any(feuillets_detectes_reactive() == input$feuillet_selection)){
       showNotification("Les parois ont déjà été détectées pour ce feuillet", type = "error", duration = 15, session = session)
-    #} else if(any(feuillets_detectes_github_reactive() %>% pull(feuillet) == input$feuillet_selection)){
-    #  showNotification("Les parois pour ce feuillet sont déjà disponibles sur GitHub", type = "error", duration = 15, session = session)
+    } else if(any(feuillets_detectes_github %>% pull(feuillet) %>% unique() == input$feuillet_selection)){
+      feuillets_detectes_github %>% 
+        filter(feuillet == input$feuillet_selection) -> feuillets_detectes_github_a_telecharger
+      
+      map2(feuillets_detectes_github_a_telecharger$download_url,
+           feuillets_detectes_github_a_telecharger$dest,
+           ~ download.file(url = .x,
+                           destfile = .y,
+                           mode = "wb",
+                           method = "curl"))
+      
+      showNotification(paste0("Feuillet téléchargé depuis github pour le feuillet ", input$feuillet_selection), type = "message", duration = 15, session = session)
     } else {
       detection.parois(index = index,
                        no_feuillet = input$feuillet_selection, 
                        session = shiny::getDefaultReactiveDomain())
+      showNotification(paste0("Détection des parois terminé pour le feuillet ", input$feuillet_selection), type = "message", duration = NULL, session = session)
+      
     }
   })
   
