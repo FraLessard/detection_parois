@@ -377,12 +377,12 @@ server <- function(input, output, session) {
                            mode = "wb",
                            method = "curl"))
       
-      showNotification(paste0("Feuillet téléchargé depuis github pour le feuillet ", input$feuillet_selection), type = "message", duration = 15, session = session)
+      showNotification(paste0("Feuillet téléchargé depuis github pour le feuillet ", input$feuillet_selection), type = "message", duration = 60, session = session)
     } else {
       detection.parois(index = index,
                        no_feuillet = input$feuillet_selection, 
                        session = shiny::getDefaultReactiveDomain())
-      showNotification(paste0("Détection des parois terminé pour le feuillet ", input$feuillet_selection), type = "message", duration = NULL, session = session)
+      showNotification(paste0("Détection des parois terminé pour le feuillet ", input$feuillet_selection), type = "message", duration = 60, session = session)
       
     }
   })

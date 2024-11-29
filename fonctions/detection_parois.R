@@ -7,7 +7,7 @@ detection.parois <- function(index,
     filter(feuillet == no_feuillet) -> index_select
   
   # Telechargement du mnt
-  showNotification("Téléchargement du modèle numérique de terrain", type = "message", duration = NULL, session = session)
+  showNotification("Téléchargement du modèle numérique de terrain", type = "message", duration = 60, session = session)
   downloader::download(url = paste0(index_select$lidar_url, "MNT_", index_select$feuillet, ".tif"), 
                        destfile = "./donnees_temporaires/mnt.tif", 
                        mode = "wb")
@@ -15,7 +15,7 @@ detection.parois <- function(index,
   rast("./donnees_temporaires/mnt.tif") -> mnt
   
   # Telechargement du mhc
-  showNotification("Téléchargement du modèle de hauteur de canopée", type = "message", duration = NULL, session = session)
+  showNotification("Téléchargement du modèle de hauteur de canopée", type = "message", duration = 60, session = session)
   downloader::download(url = paste0(index_select$lidar_url, "MHC_", index_select$feuillet, ".tif"), 
                        destfile = "./donnees_temporaires/mhc.tif", 
                        mode = "wb")
@@ -23,7 +23,7 @@ detection.parois <- function(index,
   rast("./donnees_temporaires/mhc.tif") -> mhc
   
   # Calcul du drop maximal parmis les 8 voisins (hauteur vertical de la paroi)
-  showNotification("Calcul de la verticalité", type = "message", duration = NULL, session = session)
+  showNotification("Calcul de la verticalité", type = "message", duration = 60, session = session)
   mnt %>% 
     focal(w = 3, 
           fun = "min") -> min
@@ -31,7 +31,7 @@ detection.parois <- function(index,
   mnt-min -> drop
   
   # Extraction des polygones de parois
-  showNotification("Extraction des parois et conversion en polygones", type = "message", duration = NULL, session = session)
+  showNotification("Extraction des parois et conversion en polygones", type = "message", duration = 60, session = session)
   ifel(drop > 4 | (drop > 0.75 & mhc < 3), 1, NA) %>% # La premiere partie detecte les parois verticales (drop d'au moins 4 m) et l'autres les dalles (drop d'au moins 75 cm, mais une hauteur d'arbres de moins de 3 m)
     as.polygons() %>% # On converti le raster en polygone
     st_as_sf %>% # On converti en objet sf
@@ -40,14 +40,14 @@ detection.parois <- function(index,
     mutate(maxd = exact_extract(drop, ., "max")) -> parois # Extracion du drop maximal
   
   # Pour filter les polygones par la surface et le drop max
-  showNotification("Tri des parois trop petites", type = "message", duration = NULL, session = session)
+  showNotification("Tri des parois trop petites", type = "message", duration = 60, session = session)
   parois %<>% 
     filter(area > 25) %>% # On conserve toutes les parois de plus de 25 m carres en x/y
     filter(maxd > 3) %>% # On conserve tout ce qui possede un drop vertical de plus de 3 m
     filter(!(maxd < 4 & area < 250)) # On enleve tout ce qui possede un drop vertical de moins de 4 m et une superficie de moins de 250 m carre (On conserve les dalles)
   
   # Pour calculer les metriques
-  showNotification("Calcul des métriques", type = "message", duration = NULL, session = session)
+  showNotification("Calcul des métriques", type = "message", duration = 60, session = session)
   exact_extract(mnt, parois, "max") -> max
   exact_extract(mnt, parois, "min") -> min
   parois %<>% 
