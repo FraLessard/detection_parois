@@ -200,7 +200,7 @@ server <- function(input, output, session) {
                   color = "purple",
                   weight = 4,
                   fillOpacity = 0,
-                  group = "feuillets_detectes_github",
+                  group = "Feuillets disponibles sur GitHub",
                   options = pathOptions(interactive = FALSE))
   })
   
@@ -232,15 +232,15 @@ server <- function(input, output, session) {
   observe({
     if(is.null(feuillets_detectes_reactive())){
       leafletProxy("map") %>%
-        clearGroup("feuillets_detectes")
+        clearGroup("Feuillets sur l'ordinateur")
     } else {
       leafletProxy("map") %>%
-        clearGroup("feuillets_detectes") %>% 
+        clearGroup("Feuillets sur l'ordinateur") %>% 
         addPolygons(data = index %>% filter(feuillet %in% feuillets_detectes_reactive()),
                     color = "lightgreen",
                     weight = 2,
                     fillOpacity = 0,
-                    group = "feuillets_detectes",
+                    group = "Feuillets sur l'ordinateur",
                     options = pathOptions(interactive = FALSE))
     }
   })
@@ -250,8 +250,8 @@ server <- function(input, output, session) {
   # 🟢 Ajout des contrôles des feuillets pour assurer l'ordre d'affichage 🟢
   observe({
     leafletProxy("map") %>%
-      addLayersControl(overlayGroups = c("feuillets_detectes",
-                                         "feuillets_detectes_github" ),  # Liste les groupes dans l'ordre
+      addLayersControl(overlayGroups = c("Feuillets sur l'ordinateur",
+                                         "Feuillets disponibles sur GitHub" ),  # Liste les groupes dans l'ordre
                        options = layersControlOptions(collapsed = FALSE)
       )
   })
